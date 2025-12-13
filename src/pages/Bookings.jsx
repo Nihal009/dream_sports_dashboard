@@ -1,18 +1,35 @@
 // Bookings Page
 import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Check, IndianRupee, User, Phone, Clock, Plus, Info, Trash2, Edit2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, Check, IndianRupee, User, Phone, Clock, Plus, Info, Trash2, Edit2, Filter, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateBookingsReport } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import { QRCodeCanvas } from 'qrcode.react';
+import Dropdown from '../components/Dropdown';
+
+const TURF_OPTIONS = [
+  { value: 'main_whole', label: 'Main Turf (Whole)' },
+  { value: 'main_half_a', label: 'Main Turf (Half A)' },
+  { value: 'main_half_b', label: 'Main Turf (Half B)' },
+  { value: 'kabbadi', label: 'Kabbadi Turf' },
+  { value: 'volleyball', label: 'Volleyball Turf' },
+];
+
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All Turfs' },
+  { value: 'main_whole', label: 'Main Turf (All)' },
+  { value: 'kabbadi', label: 'Kabbadi Turf' },
+  { value: 'volleyball', label: 'Volleyball Turf' },
+];
 
 const Bookings = () => {
   const { bookings, addBookings, updateBooking, deleteBooking, addPayment, settings } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null); // For details modal
-  const [hourlyRate, setHourlyRate] = useState(150);
+  const [hourlyRate, setHourlyRate] = useState(0);
+  const [selectedTurfFilter, setSelectedTurfFilter] = useState('all'); // all, main_whole, main_half_a, main_half_b, kabbadi, volleyball
   const [openTime, setOpenTime] = useState(6); // Default 6 AM
   const [closeTime, setCloseTime] = useState(23); // Default 11 PM
   
@@ -30,17 +47,26 @@ const Bookings = () => {
     date: '',
     startTime: '10:00',
     duration: 1,
-    total_amount: 150,
+    turf_type: 'main_whole', // Default
+    total_amount: 0,
     payment_status: 'pending'
   });
 
   useEffect(() => {
     if (settings) {
-      if (settings.hourly_rate) setHourlyRate(parseInt(settings.hourly_rate));
+      // Set initial hourly rate based on default turf type or first available
+      let rateKey = `rate_${formData.turf_type}`;
+      if (formData.turf_type === 'main_half_a' || formData.turf_type === 'main_half_b') {
+          rateKey = 'rate_main_half';
+      }
+      
+      const rate = settings[rateKey] || 0;
+      setHourlyRate(parseInt(rate));
+
       if (settings.open_time) setOpenTime(parseInt(settings.open_time.split(':')[0]));
       if (settings.close_time) setCloseTime(parseInt(settings.close_time.split(':')[0]));
     }
-  }, [settings]);
+  }, [settings, formData.turf_type]);
 
   // Update amount when duration or hourly rate changes
   useEffect(() => {
@@ -68,7 +94,8 @@ const Bookings = () => {
       date: dateStr,
       startTime: currentTime, 
       duration: 1, 
-      total_amount: hourlyRate, 
+      turf_type: 'main_whole',
+      total_amount: parseInt(settings?.rate_main_whole || 0), 
       payment_status: 'pending' 
     });
     setIsModalOpen(true);
@@ -81,7 +108,7 @@ const Bookings = () => {
     return d;
   };
 
-  const checkAvailability = (newStart, newEnd) => {
+  const checkAvailability = (newStart, newEnd, turfType) => {
     const now = new Date();
     
     // Check for past time
@@ -107,10 +134,28 @@ const Bookings = () => {
     for (const booking of dayBookings) {
       const existingStart = new Date(booking.booking_time);
       const existingEnd = new Date(booking.end_time);
+      const existingTurf = booking.turf_type || 'main_whole'; // Default to main_whole for legacy bookings
 
       // Check overlap: (StartA < EndB) && (EndA > StartB)
       if (newStart < existingEnd && newEnd > existingStart) {
-        return { valid: false, message: "Selected time overlaps with an existing booking." };
+        // Conflict Logic
+        let hasConflict = false;
+
+        if (turfType === existingTurf) {
+            hasConflict = true; // Same turf always conflicts
+        } else if (
+            (turfType === 'main_whole' && (existingTurf === 'main_half_a' || existingTurf === 'main_half_b')) ||
+            ((turfType === 'main_half_a' || turfType === 'main_half_b') && existingTurf === 'main_whole')
+        ) {
+            hasConflict = true; // Whole vs Half conflicts
+        }
+        
+        // Note: Half A vs Half B does NOT conflict.
+        // Kabbadi and Volleyball do NOT conflict with Main Turf.
+
+        if (hasConflict) {
+             return { valid: false, message: `Selected time overlaps with an existing booking (${existingTurf.replace(/_/g, ' ')}).` };
+        }
       }
     }
     return { valid: true };
@@ -119,10 +164,16 @@ const Bookings = () => {
   const handleModalSubmit = async (e) => {
     e.preventDefault();
     
+    // Phone Validation
+    if (!/^\d{10}$/.test(formData.phone_number)) {
+      toast.error("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     const startDateTime = getBookingDateTime(formData.date, formData.startTime);
     const endDateTime = new Date(startDateTime.getTime() + formData.duration * 60 * 60 * 1000);
 
-    const availability = checkAvailability(startDateTime, endDateTime);
+    const availability = checkAvailability(startDateTime, endDateTime, formData.turf_type);
     if (!availability.valid) {
       toast.error(availability.message);
       return;
@@ -136,7 +187,8 @@ const Bookings = () => {
       total_amount: formData.total_amount,
       payment_status: 'pending', // Always start as pending
       duration: formData.duration,
-      booking_status: 'confirmed'
+      booking_status: 'confirmed',
+      turf_type: formData.turf_type
     };
 
     const { data, error } = await addBookings([bookingData]);
@@ -226,9 +278,24 @@ const Bookings = () => {
     setSelectedDate(newDate);
   };
 
-  // Filter and sort bookings for the selected date
+  // Filter and sort bookings for the selected date and turf filter
   const dayBookings = bookings
-    .filter(b => new Date(b.booking_time).toDateString() === selectedDate.toDateString())
+    .filter(b => {
+        const isDateMatch = new Date(b.booking_time).toDateString() === selectedDate.toDateString();
+        const bookingTurf = b.turf_type || 'main_whole';
+        
+        if (!isDateMatch) return false;
+
+        if (selectedTurfFilter === 'all') return true;
+        
+        // Specific Logic for filtering
+        if (selectedTurfFilter === 'main_whole') {
+            // Show Whole, Half A, and Half B so user sees all activity on main turf
+            return bookingTurf === 'main_whole' || bookingTurf === 'main_half_a' || bookingTurf === 'main_half_b';
+        }
+        
+        return bookingTurf === selectedTurfFilter;
+    })
     .sort((a, b) => new Date(a.booking_time) - new Date(b.booking_time));
 
   const formatTime = (isoString) => {
@@ -258,7 +325,18 @@ const Bookings = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+            {/* Turf Filter */}
+            {/* Turf Filter */}
+            <div className="w-[200px]">
+                <Dropdown
+                    icon={Filter}
+                    options={FILTER_OPTIONS}
+                    value={selectedTurfFilter}
+                    onChange={setSelectedTurfFilter}
+                />
+            </div>
+
             <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <button onClick={handlePrevDay} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 <ChevronLeft size={20} className="text-gray-600 dark:text-gray-300" />
@@ -298,104 +376,144 @@ const Bookings = () => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col flex-1">
         
         {/* Timeline Container */}
-        <div className="relative w-full h-full p-4 flex flex-col">
+        <div className="relative w-full h-full p-4 flex">
             
-            {/* Time Labels */}
-            <div className="flex w-full h-8 border-b border-gray-100 dark:border-gray-700">
-              {hoursArray.map((hour) => (
-                <div key={hour} className="flex-1 text-xs text-gray-400 border-l border-gray-100 dark:border-gray-700/50 pl-1">
-                  {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+            {/* Y-Axis Labels (Left Column) */}
+            {(selectedTurfFilter === 'main_whole' || selectedTurfFilter === 'all') && (
+                <div className="w-16 flex-shrink-0 flex flex-col pt-10 border-r border-gray-100 dark:border-gray-700/50 mr-2">
+                    <div className="flex-1 flex items-center justify-center border-b border-dashed border-gray-100 dark:border-gray-700/30">
+                        <span className="text-xs font-bold text-indigo-400 dark:text-indigo-300 tracking-wider">SIDE A</span>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                        <span className="text-xs font-bold text-indigo-400 dark:text-indigo-300 tracking-wider">SIDE B</span>
+                    </div>
                 </div>
-              ))}
-            </div>
+            )}
 
-            {/* Booking Area */}
-            <div className="relative flex-1 w-full mt-2">
-                {/* Grid Lines (Background) */}
-                <div className="absolute inset-0 flex pointer-events-none">
-                    {hoursArray.map((_, i) => (
-                        <div key={i} className="flex-1 border-l border-gray-50 dark:border-gray-800/50 h-full"></div>
-                    ))}
+            {/* Main Timeline Content (Right Column) */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Time Labels */}
+                <div className="flex w-full h-8 border-b border-gray-100 dark:border-gray-700">
+                {hoursArray.map((hour) => (
+                    <div key={hour} className="flex-1 text-xs text-gray-400 border-l border-gray-100 dark:border-gray-700/50 pl-1">
+                    {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                    </div>
+                ))}
                 </div>
 
-                {/* Current Time Indicator */}
-                {selectedDate.toDateString() === new Date().toDateString() && (
-                (() => {
-                    const now = new Date();
-                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                    const startMinutes = openTime * 60;
-                    const totalMinutes = totalHours * 60;
-                    const percentage = ((currentMinutes - startMinutes) / totalMinutes) * 100;
-                    
-                    if (percentage >= 0 && percentage <= 100) {
-                    return (
-                        <div 
-                        className="absolute top-0 bottom-0 border-l-2 border-red-500 z-20 pointer-events-none"
-                        style={{ left: `${percentage}%` }}
-                        >
-                        <div className="w-3 h-3 bg-red-500 rounded-full -ml-1.5 -mt-1.5"></div>
-                        </div>
-                    );
-                    }
-                    return null;
-                })()
-                )}
+                {/* Booking Area */}
+                <div className="relative flex-1 w-full mt-2">
+                    {/* Grid Lines (Background) */}
+                    <div className="absolute inset-0 flex pointer-events-none">
+                        {hoursArray.map((_, i) => (
+                            <div key={i} className="flex-1 border-l border-gray-50 dark:border-gray-800/50 h-full"></div>
+                        ))}
+                        
+                        {/* Main Turf Split Visualization - Horizontal Divider Only */}
+                        {(selectedTurfFilter === 'main_whole' || selectedTurfFilter === 'all') && (
+                            <div className="absolute top-1/2 left-0 right-0 border-t-2 border-dashed border-indigo-200 dark:border-indigo-700/50 w-full z-0"></div>
+                        )}
+                    </div>
 
-                {/* Booking Blocks */}
-                {dayBookings.map((booking) => {
-                    const start = new Date(booking.booking_time);
-                    const end = new Date(booking.end_time);
-                    
-                    const startMinutes = start.getHours() * 60 + start.getMinutes();
-                    const endMinutes = end.getHours() * 60 + end.getMinutes();
-                    const gridStartMinutes = openTime * 60;
-                    const totalMinutes = totalHours * 60;
-                    
-                    const leftPercent = ((startMinutes - gridStartMinutes) / totalMinutes) * 100;
-                    const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
-
-                    // Skip if out of bounds (shouldn't happen with validation, but safe to check)
-                    if (widthPercent <= 0) return null;
-
-                    return (
-                        <motion.div
-                            key={booking.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={`absolute top-2 bottom-2 rounded-xl border-l-4 p-3 overflow-visible shadow-md cursor-pointer hover:shadow-xl transition-all z-10 group
-                                ${booking.payment_status === 'paid'
-                                ? 'bg-green-50 border-green-500 text-green-900 dark:bg-green-900/20 dark:text-green-100' 
-                                : 'bg-red-50 border-red-500 text-red-900 dark:bg-red-900/20 dark:text-red-100'
-                                }
-                            `}
-                            style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
-                            onClick={() => setSelectedBooking(booking)}
-                        >
-                            <div className="font-bold text-sm md:text-base truncate">{booking.customer_name}</div>
-                            <div className="truncate opacity-80 text-xs mt-0.5">
-                                {formatTime(booking.booking_time)} - {formatTime(booking.end_time)}
+                    {/* Current Time Indicator */}
+                    {selectedDate.toDateString() === new Date().toDateString() && (
+                    (() => {
+                        const now = new Date();
+                        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                        const startMinutes = openTime * 60;
+                        const totalMinutes = totalHours * 60;
+                        const percentage = ((currentMinutes - startMinutes) / totalMinutes) * 100;
+                        
+                        if (percentage >= 0 && percentage <= 100) {
+                        return (
+                            <div 
+                            className="absolute top-0 bottom-0 border-l-2 border-red-500 z-20 pointer-events-none"
+                            style={{ left: `${percentage}%` }}
+                            >
+                            <div className="w-3 h-3 bg-red-500 rounded-full -ml-1.5 -mt-1.5"></div>
                             </div>
-                            
-                            {/* Hover Tooltip Popup */}
-                            <div className={`absolute top-0 w-48 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 ${leftPercent > 50 ? 'right-full mr-2' : 'left-full ml-2'}`}>
-                                <div className="font-bold text-sm mb-1">{booking.customer_name}</div>
-                                <div className="flex items-center gap-1 opacity-80 mb-0.5">
-                                    <Clock size={10} />
+                        );
+                        }
+                        return null;
+                    })()
+                    )}
+
+                    {/* Booking Blocks */}
+                    {dayBookings.map((booking) => {
+                        const start = new Date(booking.booking_time);
+                        const end = new Date(booking.end_time);
+                        
+                        const startMinutes = start.getHours() * 60 + start.getMinutes();
+                        const endMinutes = end.getHours() * 60 + end.getMinutes();
+                        const gridStartMinutes = openTime * 60;
+                        const totalMinutes = totalHours * 60;
+                        
+                        const leftPercent = ((startMinutes - gridStartMinutes) / totalMinutes) * 100;
+                        const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+
+                        // Skip if out of bounds
+                        if (widthPercent <= 0) return null;
+
+                        // Calculate Vertical Position based on Turf Type
+                        let top = '0.5rem';
+                        let height = 'calc(100% - 1rem)'; // Default full height
+
+                        if (booking.turf_type === 'main_half_a') {
+                            top = '0.5rem';
+                            height = 'calc(50% - 0.5rem)';
+                        } else if (booking.turf_type === 'main_half_b') {
+                            top = '50%';
+                            height = 'calc(50% - 0.5rem)';
+                        }
+
+                        return (
+                            <motion.div
+                                key={booking.id}
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className={`absolute rounded-xl border-l-4 p-3 overflow-visible shadow-md cursor-pointer hover:shadow-xl transition-all z-10 group
+                                    ${booking.payment_status === 'paid'
+                                    ? 'bg-green-50 border-green-500 text-green-900 dark:bg-green-900/20 dark:text-green-100' 
+                                    : 'bg-red-50 border-red-500 text-red-900 dark:bg-red-900/20 dark:text-red-100'
+                                    }
+                                `}
+                                style={{ 
+                                    left: `${leftPercent}%`, 
+                                    width: `${widthPercent}%`,
+                                    top: top,
+                                    height: height
+                                }}
+                                onClick={() => setSelectedBooking(booking)}
+                            >
+                                <div className="font-bold text-sm md:text-base truncate">{booking.customer_name}</div>
+                                <div className="truncate opacity-80 text-xs mt-0.5">
                                     {formatTime(booking.booking_time)} - {formatTime(booking.end_time)}
                                 </div>
-                                <div className="flex items-center gap-1 opacity-80 mb-1">
-                                    <Phone size={10} />
-                                    {booking.phone_number}
+                                <div className="truncate text-[10px] font-mono opacity-70 mt-0.5">
+                                    {(booking.turf_type || 'main_whole').replace(/_/g, ' ').toUpperCase()}
                                 </div>
-                                <div className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${booking.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                                    {booking.payment_status === 'paid' ? 'PAID' : 'UNPAID'}
+                                
+                                {/* Hover Tooltip Popup */}
+                                <div className={`absolute top-0 w-48 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 ${leftPercent > 50 ? 'right-full mr-2' : 'left-full ml-2'}`}>
+                                    <div className="font-bold text-sm mb-1">{booking.customer_name}</div>
+                                    <div className="flex items-center gap-1 opacity-80 mb-0.5">
+                                        <Clock size={10} />
+                                        {formatTime(booking.booking_time)} - {formatTime(booking.end_time)}
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-80 mb-1">
+                                        <Phone size={10} />
+                                        {booking.phone_number}
+                                    </div>
+                                    <div className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${booking.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                                        {booking.payment_status === 'paid' ? 'PAID' : 'UNPAID'}
+                                    </div>
+                                    {/* Arrow */}
+                                    <div className={`absolute top-4 border-4 border-transparent ${leftPercent > 50 ? 'left-full border-l-gray-900' : 'right-full border-r-gray-900'}`}></div>
                                 </div>
-                                {/* Arrow */}
-                                <div className={`absolute top-4 border-4 border-transparent ${leftPercent > 50 ? 'left-full border-l-gray-900' : 'right-full border-r-gray-900'}`}></div>
-                            </div>
-                        </motion.div>
-                    );
-                })}
+                            </motion.div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
       </div>
@@ -436,6 +554,8 @@ const Bookings = () => {
                   </div>
                 </div>
 
+
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
                   <div className="relative">
@@ -446,7 +566,10 @@ const Bookings = () => {
                       type="tel"
                       required
                       value={formData.phone_number}
-                      onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setFormData({...formData, phone_number: val});
+                      }}
                       className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
                       placeholder="+91 ..."
                     />
@@ -509,6 +632,26 @@ const Bookings = () => {
                 </div>
 
                 <div>
+                    <Dropdown
+                        label="Turf Type"
+                        icon={Layers}
+                        options={TURF_OPTIONS.filter(option => {
+                            // Calculate start and end time for the potential booking
+                            const startDateTime = getBookingDateTime(formData.date, formData.startTime);
+                            const endDateTime = new Date(startDateTime.getTime() + formData.duration * 60 * 60 * 1000);
+                            
+                            // Check availability for this specific turf option
+                            const availability = checkAvailability(startDateTime, endDateTime, option.value);
+                            
+                            // Only include if valid (available)
+                            return availability.valid;
+                        })}
+                        value={formData.turf_type}
+                        onChange={(val) => setFormData({...formData, turf_type: val})}
+                    />
+                </div>
+
+                <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Amount</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -516,9 +659,9 @@ const Bookings = () => {
                         </div>
                         <input
                         type="number"
-                        readOnly
                         value={formData.total_amount}
-                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white font-bold cursor-not-allowed"
+                        onChange={(e) => setFormData({...formData, total_amount: e.target.value})}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-bold focus:ring-2 focus:ring-alnassr-blue"
                         />
                     </div>
                 </div>
@@ -529,7 +672,7 @@ const Bookings = () => {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium hover:border-gray-400"
+                    className="flex-1 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium hover:border-red-300"
                   >
                     Cancel
                   </button>
@@ -620,7 +763,7 @@ const Bookings = () => {
                     </div>
                     <button 
                       onClick={() => setPaymentStep('choice')}
-                      className="w-full text-gray-500 hover:text-gray-700 text-sm mt-4"
+                      className="w-full py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm mt-4 font-medium"
                     >
                       Back
                     </button>
@@ -672,7 +815,7 @@ const Bookings = () => {
                     
                     <button 
                       onClick={() => setPaymentStep('method')}
-                      className="w-full text-gray-500 hover:text-gray-700 text-sm"
+                      className="w-full py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm font-medium"
                     >
                       Back
                     </button>
@@ -730,6 +873,14 @@ const Bookings = () => {
                         </div>
                     </div>
 
+                    <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                        <div className="w-5 flex justify-center"><div className="w-2 h-2 rounded-full bg-alnassr-blue"></div></div>
+                        <div>
+                            <p className="text-xs text-gray-500">Turf</p>
+                            <p className="font-medium capitalize">{(selectedBooking.turf_type || 'main_whole').replace(/_/g, ' ')}</p>
+                        </div>
+                    </div>
+
                     <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
                         {/* Payment Status Toggle */}
                         <div className="flex items-center justify-between">
@@ -749,7 +900,7 @@ const Bookings = () => {
                         {/* Delete Button */}
                         <button 
                             onClick={() => handleDeleteBooking(selectedBooking.id)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors font-medium mt-2"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-white bg-red-500 hover:bg-red-600 border border-transparent rounded-lg transition-colors font-medium mt-2 shadow-sm"
                         >
                             <Trash2 size={18} />
                             Delete Booking

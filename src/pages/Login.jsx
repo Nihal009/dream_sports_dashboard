@@ -52,20 +52,74 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-alnassr-blue to-alnassr-blue-dark p-4">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-900">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            opacity: [0.3, 0.5, 0.3]
+          }}
+          transition={{ 
+            duration: 20, 
+            repeat: Infinity,
+            ease: "linear" 
+          }}
+          className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] rounded-full bg-alnassr-blue/30 blur-[100px]"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.5, 1],
+            rotate: [0, -90, 0],
+            opacity: [0.2, 0.4, 0.2]
+          }}
+          transition={{ 
+            duration: 25, 
+            repeat: Infinity,
+            ease: "linear" 
+          }}
+          className="absolute top-[20%] -right-[10%] w-[500px] h-[500px] rounded-full bg-alnassr-yellow/20 blur-[100px]"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.3, 1],
+            x: [0, 100, 0],
+            opacity: [0.2, 0.5, 0.2]
+          }}
+          transition={{ 
+            duration: 30, 
+            repeat: Infinity,
+            ease: "linear" 
+          }}
+          className="absolute -bottom-[20%] left-[20%] w-[700px] h-[700px] rounded-full bg-alnassr-blue-dark/40 blur-[120px]"
+        />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md overflow-hidden z-10 border border-white/20"
       >
-        <div className="bg-alnassr-yellow p-8 text-center">
-          <h1 className="text-3xl font-bold text-alnassr-blue tracking-wider">Dream Sports Academy</h1>
-          <p className="text-alnassr-blue font-medium mt-2">Admin Portal</p>
+        <div className="bg-gradient-to-r from-alnassr-blue to-alnassr-blue-dark p-8 text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-pattern opacity-10"></div>
+            <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="relative z-10"
+            >
+                <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+                    <img src="/dsa_logo-removebg-preview.png" alt="Logo" className="w-16 h-16 object-contain" />
+                </div>
+                <h1 className="text-2xl font-bold text-white tracking-wider">Dream Sports Academy</h1>
+                <p className="text-alnassr-yellow font-medium mt-2 text-sm uppercase tracking-widest">Admin Portal</p>
+            </motion.div>
         </div>
         
         <div className="p-8">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">Welcome Back</h2>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 text-center">Welcome Back</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -131,7 +185,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-alnassr-blue hover:bg-alnassr-blue-dark text-white font-bold py-3 rounded-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-alnassr-blue hover:bg-alnassr-blue-dark text-white font-bold py-3 rounded-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? 'Signing In...' : 'Sign In'}
               {!loading && <ArrowRight size={20} />}

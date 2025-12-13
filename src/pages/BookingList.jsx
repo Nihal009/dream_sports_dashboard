@@ -117,7 +117,9 @@ const BookingList = () => {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="text-gray-400" size={18} />
+            </div>
             <input 
               type="text" 
               placeholder="Search name or phone..." 
@@ -183,7 +185,7 @@ const BookingList = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {booking.duration_hours} hr{booking.duration_hours > 1 ? 's' : ''}
+                      {booking.duration} hr{booking.duration > 1 ? 's' : ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm font-bold text-gray-900 dark:text-white">

@@ -7,7 +7,10 @@ import toast from 'react-hot-toast';
 const Settings = () => {
   const { settings, updateConstant } = useData();
   const [localSettings, setLocalSettings] = useState({
-    hourly_rate: '',
+    rate_main_whole: '',
+    rate_main_half: '',
+    rate_kabbadi: '',
+    rate_volleyball: '',
     open_time: '06:00',
     close_time: '23:00'
   });
@@ -16,11 +19,14 @@ const Settings = () => {
   useEffect(() => {
     if (settings) {
       setLocalSettings({
-        hourly_rate: settings.hourly_rate || '',
+        rate_main_whole: settings.rate_main_whole || '',
+        rate_main_half: settings.rate_main_half || '',
+        rate_kabbadi: settings.rate_kabbadi || '',
+        rate_volleyball: settings.rate_volleyball || '',
         open_time: settings.open_time || '06:00',
         close_time: settings.close_time || '23:00',
         upi_id: settings.upi_id || '',
-        whatsapp_number: settings.whatsapp_number || ''
+
       });
     }
   }, [settings]);
@@ -61,9 +67,10 @@ const Settings = () => {
           </div>
           
           <div className="p-6 space-y-6">
+            {/* Main Turf Whole */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Hourly Rate (₹)
+                Main Turf (Whole) Rate (₹)
               </label>
               <div className="flex gap-4 items-center">
                 <div className="relative flex-1">
@@ -72,18 +79,102 @@ const Settings = () => {
                   </div>
                   <input
                     type="number"
-                    value={localSettings.hourly_rate}
-                    onChange={(e) => handleChange('hourly_rate', e.target.value)}
+                    value={localSettings.rate_main_whole}
+                    onChange={(e) => handleChange('rate_main_whole', e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
-                    placeholder="150"
+                    placeholder="1500"
                   />
                 </div>
                 <button
-                  onClick={() => handleSave('hourly_rate')}
-                  disabled={loading.hourly_rate}
+                  onClick={() => handleSave('rate_main_whole')}
+                  disabled={loading.rate_main_whole}
                   className="bg-alnassr-blue text-white p-2 rounded-lg hover:bg-alnassr-blue-dark transition-colors disabled:opacity-50"
                 >
-                  {loading.hourly_rate ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
+                  {loading.rate_main_whole ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Main Turf Half */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Main Turf (Half) Rate (₹)
+              </label>
+              <div className="flex gap-4 items-center">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IndianRupee className="text-gray-500" size={16} />
+                  </div>
+                  <input
+                    type="number"
+                    value={localSettings.rate_main_half}
+                    onChange={(e) => handleChange('rate_main_half', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
+                    placeholder="800"
+                  />
+                </div>
+                <button
+                  onClick={() => handleSave('rate_main_half')}
+                  disabled={loading.rate_main_half}
+                  className="bg-alnassr-blue text-white p-2 rounded-lg hover:bg-alnassr-blue-dark transition-colors disabled:opacity-50"
+                >
+                  {loading.rate_main_half ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Kabbadi Turf */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Kabbadi Turf Rate (₹)
+              </label>
+              <div className="flex gap-4 items-center">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IndianRupee className="text-gray-500" size={16} />
+                  </div>
+                  <input
+                    type="number"
+                    value={localSettings.rate_kabbadi}
+                    onChange={(e) => handleChange('rate_kabbadi', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
+                    placeholder="500"
+                  />
+                </div>
+                <button
+                  onClick={() => handleSave('rate_kabbadi')}
+                  disabled={loading.rate_kabbadi}
+                  className="bg-alnassr-blue text-white p-2 rounded-lg hover:bg-alnassr-blue-dark transition-colors disabled:opacity-50"
+                >
+                  {loading.rate_kabbadi ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Volleyball Turf */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Volleyball Turf Rate (₹)
+              </label>
+              <div className="flex gap-4 items-center">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IndianRupee className="text-gray-500" size={16} />
+                  </div>
+                  <input
+                    type="number"
+                    value={localSettings.rate_volleyball}
+                    onChange={(e) => handleChange('rate_volleyball', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
+                    placeholder="400"
+                  />
+                </div>
+                <button
+                  onClick={() => handleSave('rate_volleyball')}
+                  disabled={loading.rate_volleyball}
+                  className="bg-alnassr-blue text-white p-2 rounded-lg hover:bg-alnassr-blue-dark transition-colors disabled:opacity-50"
+                >
+                  {loading.rate_volleyball ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
                 </button>
               </div>
             </div>
@@ -125,29 +216,7 @@ const Settings = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                WhatsApp Number (for Reports)
-              </label>
-              <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={localSettings.whatsapp_number || ''}
-                    onChange={(e) => handleChange('whatsapp_number', e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-alnassr-blue"
-                    placeholder="919876543210"
-                  />
-                </div>
-                <button
-                  onClick={() => handleSave('whatsapp_number')}
-                  disabled={loading.whatsapp_number}
-                  className="bg-alnassr-blue text-white p-2 rounded-lg hover:bg-alnassr-blue-dark transition-colors disabled:opacity-50"
-                >
-                  {loading.whatsapp_number ? <Save size={20} className="animate-spin" /> : <Save size={20} />}
-                </button>
-              </div>
-            </div>
+
           </div>
         </div>
 

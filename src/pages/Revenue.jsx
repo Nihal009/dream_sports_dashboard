@@ -114,16 +114,7 @@ const Revenue = () => {
     toast.success('PDF Report downloaded!');
   };
 
-  const shareWhatsApp = () => {
-    if (!settings?.whatsapp_number) {
-      toast.error('Please configure WhatsApp number in Settings first.');
-      return;
-    }
-    
-    const message = `*DSA Revenue Report*\nPeriod: ${dateRange.toUpperCase()}\nTotal Revenue: ₹${summary.total.toLocaleString()}\nTotal Bookings: ${summary.count}\n\nGenerated from Admin Dashboard.`;
-    const url = `https://wa.me/${settings.whatsapp_number}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-  };
+
 
   return (
     <div className="space-y-8">
@@ -141,13 +132,7 @@ const Revenue = () => {
              <Download size={18} />
              <span className="hidden sm:inline">Download PDF</span>
            </button>
-           <button 
-             onClick={shareWhatsApp}
-             className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"
-           >
-             <Share2 size={18} />
-             <span className="hidden sm:inline">Share WhatsApp</span>
-           </button>
+
         </div>
       </div>
 
